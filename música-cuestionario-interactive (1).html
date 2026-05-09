@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Música Cuestionario</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh; padding: 20px; color: #333;
+}
+.container { max-width: 700px; margin: 0 auto; }
+.header { text-align: center; color: #fff; padding: 30px 20px; }
+.header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+.header .meta { font-size: 14px; opacity: 0.9; }
+.progress-bar { background: rgba(255,255,255,0.3); border-radius: 10px; height: 8px; margin: 20px 0; overflow: hidden; }
+.progress-fill { background: #fff; height: 100%; width: 0%; transition: width 0.4s ease; border-radius: 10px; }
+.question { background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: none; }
+.question.active { display: block; }
+.q-header { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: #888; }
+.q-number { font-weight: 600; color: #667eea; }
+.q-text { font-size: 18px; font-weight: 600; line-height: 1.5; margin-bottom: 25px; color: #222; }
+.options { display: flex; flex-direction: column; gap: 12px; }
+.option-wrapper { display: flex; flex-direction: column; }
+.option {
+  display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px;
+  border: 2px solid #e8e8e8; border-radius: 12px; background: #fafafa;
+  cursor: pointer; transition: all 0.2s; text-align: left; font-size: 15px; width: 100%;
+}
+[dir="rtl"] .option { text-align: right; flex-direction: row-reverse; }
+.option:hover:not(.disabled) { border-color: #667eea; background: #f5f3ff; }
+.option.selected { border-color: #667eea; background: #ede9fe; }
+.option.correct { border-color: #22c55e; background: #dcfce7; }
+.option.incorrect { border-color: #ef4444; background: #fee2e2; }
+.option.disabled { cursor: default; }
+.option.show-correct { border-color: #22c55e; background: #dcfce7; }
+.opt-label {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%; background: #e8e8e8;
+  font-weight: 700; font-size: 14px; flex-shrink: 0;
+}
+.option.selected .opt-label { background: #667eea; color: #fff; }
+.option.correct .opt-label { background: #22c55e; color: #fff; }
+.option.incorrect .opt-label { background: #ef4444; color: #fff; }
+.option.show-correct .opt-label { background: #22c55e; color: #fff; }
+.opt-text { padding-top: 5px; line-height: 1.5; }
+
+/* Individual option feedback */
+.option-feedback {
+  margin: 8px 0 4px 46px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+[dir="rtl"] .option-feedback { margin-left: 0; margin-right: 46px; }
+.option-feedback.correct-feedback {
+  background: #dcfce7;
+  border-left: 3px solid #22c55e;
+}
+.option-feedback.incorrect-feedback {
+  background: #fef3f2;
+  border-left: 3px solid #fca5a5;
+}
+[dir="rtl"] .option-feedback.correct-feedback,
+[dir="rtl"] .option-feedback.incorrect-feedback {
+  border-left: none;
+  border-right: 3px solid;
+}
+[dir="rtl"] .option-feedback.correct-feedback { border-right-color: #22c55e; }
+[dir="rtl"] .option-feedback.incorrect-feedback { border-right-color: #fca5a5; }
+.feedback-status {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feedback-status.correct { color: #166534; }
+.feedback-status.incorrect { color: #991b1b; }
+.feedback-rationale { color: #444; }
+
+/* Hint box */
+.hint-box {
+  margin: 12px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+}
+.hint-toggle {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hint-toggle:hover { background: #fef3c7; }
+.hint-content {
+  padding: 0 16px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s, padding 0.3s;
+  font-size: 14px;
+  color: #78350f;
+  line-height: 1.5;
+}
+.hint-box.show .hint-content {
+  padding: 0 16px 12px;
+  max-height: 200px;
+}
+
+.next-btn {
+  margin-top: 20px; width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none;
+  border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.next-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+.hidden { display: none !important; }
+.results { background: #fff; border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: none; }
+.results.active { display: block; }
+.results h2 { font-size: 28px; margin-bottom: 10px; color: #333; }
+.results .score { font-size: 64px; font-weight: 700; color: #667eea; margin: 20px 0; }
+.results .score-text { font-size: 18px; color: #666; margin-bottom: 30px; }
+.restart-btn {
+  padding: 14px 40px; background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+
+/* Math CSS */
+.math, .math-block { font-family: "Cambria Math", "Times New Roman", Times, serif; font-style: italic; }
+.math-block { display: block; text-align: center; margin: 10px 0; font-size: 110%; }
+.frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 3px; font-size: 0.9em; }
+.frac-num { border-bottom: 1px solid currentColor; padding: 0 4px 2px; line-height: 1.2; }
+.frac-den { padding: 2px 4px 0; line-height: 1.2; }
+.sqrt { white-space: nowrap; }
+.sqrt-content { border-top: 1px solid currentColor; padding: 0 3px; margin-left: 2px; }
+sup, sub { font-size: 0.75em; }
+sup { vertical-align: super; }
+sub { vertical-align: sub; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Música Cuestionario</h1>
+    <div class="meta">10 questions</div>
+    <div class="progress-bar"><div class="progress-fill"></div></div>
+  </div>
+  <div id="quiz-container">
+        <div class="question" data-index="0">
+          <div class="q-header">
+            <span class="q-number">Question 1</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">De acuerdo con el texto de Byrne, ¿cuál es la principal diferencia entre el teatro oriental y el occidental en términos de su enfoque hacia la realidad?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Recuerde qué término asocia el autor con lo 'presentacional'.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="El texto no menciona el rechazo tecnológico en el teatro occidental, sino su empeño en la estética realista.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">El teatro occidental rechaza la tecnología para mantener la pureza de la actuación.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El texto no menciona el rechazo tecnológico en el teatro occidental, sino su empeño en la estética realista.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="El autor establece precisamente una distinción entre la búsqueda de realismo y la aceptación de la artificialidad.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">Ambos tipos de teatro comparten el mismo ideal de verdad absoluta y fidelidad técnica.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El autor establece precisamente una distinción entre la búsqueda de realismo y la aceptación de la artificialidad.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="true" data-rationale="Byrne utiliza esta analogía para comparar cómo algunas grabaciones musicales admiten su artificialidad frente a las que buscan una 'fidelidad' absoluta a la realidad.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">El teatro oriental es presentacional y artificial, mientras que el occidental busca ser realista.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Byrne utiliza esta analogía para comparar cómo algunas grabaciones musicales admiten su artificialidad frente a las que buscan una 'fidelidad' absoluta a la realidad.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="Esta opción invierte las definiciones dadas en el texto sobre la naturaleza de ambas tradiciones teatrales.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">El teatro oriental busca ser realista mientras el occidental es artificial.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Esta opción invierte las definiciones dadas en el texto sobre la naturaleza de ambas tradiciones teatrales.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="1">
+          <div class="q-header">
+            <span class="q-number">Question 2</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">¿Qué define fundamentalmente a la 'música concreta' según los postulados de Pierre Schaeffer en 1948?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Considere el concepto de 'sonidos fijados' en un soporte analógico o digital.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="La música concreta se basa en capturar ruidos de la realidad (como trenes o puertas) y tratarlos como objetos musicales mediante el corte y montaje.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">El uso del sonido grabado y fijado en un soporte para su manipulación y descontextualización.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La música concreta se basa en capturar ruidos de la realidad (como trenes o puertas) y tratarlos como objetos musicales mediante el corte y montaje.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Esta descripción corresponde más a la música electrónica temprana o sintetizada que a la técnica de sonidos fijados.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">La creación de sonidos puramente electrónicos mediante osciladores y sintetizadores.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Esta descripción corresponde más a la música electrónica temprana o sintetizada que a la técnica de sonidos fijados.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="La música concreta requiere necesariamente de dispositivos de grabación y fijación del sonido, alejándose de la improvisación acústica pura.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">La improvisación en vivo utilizando instrumentos acústicos tradicionales sin amplificación.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La música concreta requiere necesariamente de dispositivos de grabación y fijación del sonido, alejándose de la improvisación acústica pura.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="Este género rompió con la estructura convencional de la música al dar importancia a ruidos incidentales sobre las melodías de violín.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">La composición exclusiva para orquestas sinfónicas basada en el sistema tonal tradicional.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Este género rompió con la estructura convencional de la música al dar importancia a ruidos incidentales sobre las melodías de violín.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="2">
+          <div class="q-header">
+            <span class="q-number">Question 3</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">Según el texto de Ochoa, ¿qué permitió la 'repetición acústica' facilitada por el fonógrafo?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Piense en cómo la posibilidad de escuchar algo muchas veces afecta su estudio académico.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="La capacidad de repetir el sonido permitió analizar músicas que no se ajustaban al pentagrama occidental y buscar formas de transcribirlas.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">El paso de una audición exótica a una audición científica y la articulación del sonido como concepto escrito.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La capacidad de repetir el sonido permitió analizar músicas que no se ajustaban al pentagrama occidental y buscar formas de transcribirlas.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="El sistema tonal es muy anterior al fonógrafo y el texto discute cómo la tecnología ayuda a analizar sonidos que se salen de dicho sistema.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">El desarrollo del sistema tonal funcional mediante el uso de gramófonos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El sistema tonal es muy anterior al fonógrafo y el texto discute cómo la tecnología ayuda a analizar sonidos que se salen de dicho sistema.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="El texto se enfoca en el cambio de percepción y análisis, no en la perfección técnica de la grabación.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">La eliminación definitiva del ruido en las grabaciones de música clásica.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El texto se enfoca en el cambio de percepción y análisis, no en la perfección técnica de la grabación.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="El fonógrafo fue una herramienta de estudio y difusión, no un mecanismo de censura instrumental.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">La prohibición de instrumentos electrónicos en los estudios de grabación europeos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El fonógrafo fue una herramienta de estudio y difusión, no un mecanismo de censura instrumental.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="3">
+          <div class="q-header">
+            <span class="q-number">Question 4</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">Fischerman explica que una obra como 'Elektra' de Richard Strauss es tonal a pesar de su ambigüedad porque:</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Considere la relación entre tensión, postergación y clímax en la música europea tradicional.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="El dodecafonismo es un sistema atonal que rompe con la jerarquía de la nota fundamental, al contrario de lo que ocurre en 'Elektra'.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">Fue compuesta siguiendo estrictamente las reglas del dodecafonismo de Schönberg.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El dodecafonismo es un sistema atonal que rompe con la jerarquía de la nota fundamental, al contrario de lo que ocurre en 'Elektra'.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="true" data-rationale="En el sistema tonal funcional, los sonidos actúan como polos de atracción de tensión y reposo, independientemente de cuánta disonancia se use en el proceso.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">Toda su carga de tensión se encamina finalmente hacia una resolución tonal.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">En el sistema tonal funcional, los sonidos actúan como polos de atracción de tensión y reposo, independientemente de cuánta disonancia se use en el proceso.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="La obra mencionada es una ópera orquestal clásica y no depende de la síntesis electrónica para su definición tonal.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">Utiliza únicamente instrumentos electrónicos que simulan sonidos acústicos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La obra mencionada es una ópera orquestal clásica y no depende de la síntesis electrónica para su definición tonal.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="El autor afirma que es sumamente disonante; la tonalidad no depende de la ausencia de disonancia sino de la resolución funcional.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">Carece de disonancias y sigue una estructura rítmica previsible.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El autor afirma que es sumamente disonante; la tonalidad no depende de la ausencia de disonancia sino de la resolución funcional.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="4">
+          <div class="q-header">
+            <span class="q-number">Question 5</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">¿Qué modelo utilizó Arnold Schönberg para teorizar sobre el lugar de la razón en el arte y el desarrollo matemático de los intervalos?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Busque al compositor que se consideraba la antítesis racionalista del romanticismo wagneriano.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="Aunque Schönberg evolucionó a partir de Wagner, buscó en otro compositor el modelo de racionalismo y variación desarrollada.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">La música de Richard Wagner y su cromatismo extremo.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Aunque Schönberg evolucionó a partir de Wagner, buscó en otro compositor el modelo de racionalismo y variación desarrollada.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Schaeffer pertenece a una tradición posterior y estética distinta (música concreta), ajena al desarrollo del dodecafonismo serial.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">El uso de sonidos ambientales grabados por Pierre Schaeffer.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Schaeffer pertenece a una tradición posterior y estética distinta (música concreta), ajena al desarrollo del dodecafonismo serial.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="El dodecafonismo es un sistema de predeterminación y cálculo intelectual, opuesto a la idea de asociación libre o espontaneidad.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">La improvisación libre típica del jazz de principios de siglo.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El dodecafonismo es un sistema de predeterminación y cálculo intelectual, opuesto a la idea de asociación libre o espontaneidad.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="Brahms representaba para Schönberg el trabajo casi matemático con los intervalos y la idea de que todo debe partir de un tema inicial.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">Johannes Brahms y su concepto de racionalismo musical.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Brahms representaba para Schönberg el trabajo casi matemático con los intervalos y la idea de que todo debe partir de un tema inicial.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="5">
+          <div class="q-header">
+            <span class="q-number">Question 6</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">En el contexto de una Estación de Trabajo de Audio Digital (DAW), ¿qué función cumple la 'interfaz de sonido'?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Piense en el puente físico entre el mundo del sonido real y los datos de la computadora.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="Este componente es el 'software de edición'; la interfaz es un componente de hardware.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">Es el software encargado de gestionar las pistas y la mesa de mezclas virtual.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Este componente es el 'software de edición'; la interfaz es un componente de hardware.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Esa descripción corresponde al 'anfitrión' o host, no a la interfaz de audio.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">Es el procesador central del ordenador que ejecuta los algoritmos de edición.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Esa descripción corresponde al 'anfitrión' o host, no a la interfaz de audio.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="Las DAW modernas utilizan almacenamiento digital (discos duros/SSD), no discos de goma laca, que son de la era de la grabación mecánica.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">Almacena físicamente los archivos de audio en discos de goma laca.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Las DAW modernas utilizan almacenamiento digital (discos duros/SSD), no discos de goma laca, que son de la era de la grabación mecánica.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="La interfaz permite que los voltajes analógicos se conviertan en datos binarios para el ordenador y viceversa para la escucha final.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">Realiza la conversión analógica-digital y digital-analógico de la señal sonora.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La interfaz permite que los voltajes analógicos se conviertan en datos binarios para el ordenador y viceversa para la escucha final.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="6">
+          <div class="q-header">
+            <span class="q-number">Question 7</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">De acuerdo con la tesis de Lavega, ¿qué instrumento electrónico fue clave para el sonido del Techno tal como se conoce hoy?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Es un dispositivo analógico de 1984 que permite sincronizar múltiples instrumentos simultáneamente.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="El Hammond es un precursor importante del sintetizador, pero el techno se identifica más específicamente con máquinas de ritmo programables.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">El órgano Hammond inventado en 1929.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El Hammond es un precursor importante del sintetizador, pero el techno se identifica más específicamente con máquinas de ritmo programables.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Aunque es un invento histórico relevante, pertenece a las vanguardias pictórico-musicales anteriores y no a la cultura de baile electrónica.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">El piano optofónico de Vladimir Baranov-Rossiné.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Aunque es un invento histórico relevante, pertenece a las vanguardias pictórico-musicales anteriores y no a la cultura de baile electrónica.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="true" data-rationale="El autor destaca que la TR-909, lanzada en la década de 1980, sustentó la base del sonido techno al incorporar el sistema MIDI.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">La caja de ritmos Roland TR-909.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El autor destaca que la TR-909, lanzada en la década de 1980, sustentó la base del sonido techno al incorporar el sistema MIDI.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="El fonógrafo es un reproductor mecánico/acústico, no un instrumento de síntesis rítmica para música electrónica bailable.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">El fonógrafo de finales del siglo XIX.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El fonógrafo es un reproductor mecánico/acústico, no un instrumento de síntesis rítmica para música electrónica bailable.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="7">
+          <div class="q-header">
+            <span class="q-number">Question 8</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">El término 'acusmática' se refiere a:</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Piense en los discípulos de Pitágoras escuchando detrás de una tela.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="La música acusmática a menudo se aleja de la notación tradicional, siendo el soporte (cinta/CD) la 'partitura' misma.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">La técnica de escribir notas musicales sobre un pentagrama tradicional.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La música acusmática a menudo se aleja de la notación tradicional, siendo el soporte (cinta/CD) la 'partitura' misma.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Aunque usa micrófonos, la esencia es la separación visual entre la fuente del sonido y el oyente.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">La amplificación de instrumentos acústicos mediante micrófonos de alta fidelidad.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Aunque usa micrófonos, la esencia es la separación visual entre la fuente del sonido y el oyente.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="La acusmática es un concepto ligado a la percepción sonora y la tecnología de grabación, no a una instrumentación étnica específica.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">Música compuesta exclusivamente para ser interpretada por instrumentos de cuerda africanos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La acusmática es un concepto ligado a la percepción sonora y la tecnología de grabación, no a una instrumentación étnica específica.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="Tomado de la práctica de Pitágoras, Schaeffer aplicó este término a la música donde el oyente solo tiene acceso al sonido grabado, sin ver al intérprete.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">Un sonido que se oye sin observar las causas o fuentes que lo producen.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Tomado de la práctica de Pitágoras, Schaeffer aplicó este término a la música donde el oyente solo tiene acceso al sonido grabado, sin ver al intérprete.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="8">
+          <div class="q-header">
+            <span class="q-number">Question 9</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">¿Cuál es la característica técnica única del Theremín que lo distingue de otros instrumentos electrónicos tempranos?</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Fue inventado por un físico ruso y se asocia a menudo con películas de ciencia ficción.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="true" data-rationale="El intérprete mueve las manos cerca de dos antenas para controlar el tono y el volumen sin tocar el aparato.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">Se toca sin necesidad de contacto físico, interfiriendo en campos electromagnéticos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El intérprete mueve las manos cerca de dos antenas para controlar el tono y el volumen sin tocar el aparato.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Esa técnica es propia de la música concreta o el mellotrón, no del theremín.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">Utiliza cintas magnéticas grabadas para reproducir sonidos de la naturaleza.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Esa técnica es propia de la música concreta o el mellotrón, no del theremín.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="Esta es la descripción del Telharmonium o Dynamophone de Thaddeus Cahill.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">Genera sonido mediante la rotación de generadores electromagnéticos masivos.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Esta es la descripción del Telharmonium o Dynamophone de Thaddeus Cahill.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="false" data-rationale="El theremín no posee cuerdas ni teclado; es un instrumento puramente electrónico.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">Requiere de un teclado similar al de un piano para ajustar el tono de las cuerdas.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">El theremín no posee cuerdas ni teclado; es un instrumento puramente electrónico.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      
+        <div class="question" data-index="9">
+          <div class="q-header">
+            <span class="q-number">Question 10</span>
+            <span class="q-of">/ 10</span>
+          </div>
+          <div class="q-text">Según Stockhausen, su obra 'Kontakte' exploraba una nueva relación entre el sonido y:</div>
+          
+        <div class="hint-box">
+          <button class="hint-toggle" onclick="this.parentElement.classList.toggle('show')">
+            💡 Hint
+          </button>
+          <div class="hint-content">Considere cómo la ubicación de los parlantes afecta la percepción del oyente.</div>
+        </div>
+      
+          <div class="options">
+        <div class="option-wrapper">
+          <button class="option" data-label="A" data-correct="false" data-rationale="Stockhausen buscaba alejarse de las estructuras narrativas convencionales hacia una experiencia puramente sonora y espacial.">
+            <span class="opt-label">A</span>
+            <span class="opt-text">La narrativa literaria de los cuentos de hadas tradicionales.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="A">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Stockhausen buscaba alejarse de las estructuras narrativas convencionales hacia una experiencia puramente sonora y espacial.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="B" data-correct="false" data-rationale="Aunque el silencio es parte de la música contemporánea, 'Kontakte' es conocida por su 'frenesí matemático de partículas sonoras'.">
+            <span class="opt-label">B</span>
+            <span class="opt-text">El silencio absoluto como único componente de la obra.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="B">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Aunque el silencio es parte de la música contemporánea, 'Kontakte' es conocida por su 'frenesí matemático de partículas sonoras'.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="C" data-correct="false" data-rationale="Kontakte combina tonos sinusoidales electrónicos y percusión, centrando su innovación en la organización espacial más que en la afinación orquestal.">
+            <span class="opt-label">C</span>
+            <span class="opt-text">La afinación perfecta de los instrumentos de madera de la orquesta.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="C">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">Kontakte combina tonos sinusoidales electrónicos y percusión, centrando su innovación en la organización espacial más que en la afinación orquestal.</div>
+          </div>
+        </div>
+      
+        <div class="option-wrapper">
+          <button class="option" data-label="D" data-correct="true" data-rationale="La obra permitía una diseminación del sonido que envolvía al oyente, rompiendo el escenario tradicional de fuente única frontal.">
+            <span class="opt-label">D</span>
+            <span class="opt-text">El espacio, utilizando parlantes ubicados en las esquinas de la sala.</span>
+          </button>
+          <div class="option-feedback hidden" data-for="D">
+            <div class="feedback-status"></div>
+            <div class="feedback-rationale">La obra permitía una diseminación del sonido que envolvía al oyente, rompiendo el escenario tradicional de fuente única frontal.</div>
+          </div>
+        </div>
+      </div>
+          <button class="next-btn hidden">Next Question →</button>
+        </div>
+      </div>
+  <div class="results" id="results">
+    <h2>Quiz Complete!</h2>
+    <div class="score" id="score">0%</div>
+    <div class="score-text" id="score-text"></div>
+    <button class="restart-btn" onclick="restart()">Try Again</button>
+  </div>
+</div>
+<script>
+const quizData = [{"question":"De acuerdo con el texto de Byrne, ¿cuál es la principal diferencia entre el teatro oriental y el occidental en términos de su enfoque hacia la realidad?","hint":"Recuerde qué término asocia el autor con lo 'presentacional'.","options":[{"label":"A","text":"El teatro occidental rechaza la tecnología para mantener la pureza de la actuación.","isCorrect":false,"rationale":"El texto no menciona el rechazo tecnológico en el teatro occidental, sino su empeño en la estética realista."},{"label":"B","text":"Ambos tipos de teatro comparten el mismo ideal de verdad absoluta y fidelidad técnica.","isCorrect":false,"rationale":"El autor establece precisamente una distinción entre la búsqueda de realismo y la aceptación de la artificialidad."},{"label":"C","text":"El teatro oriental es presentacional y artificial, mientras que el occidental busca ser realista.","isCorrect":true,"rationale":"Byrne utiliza esta analogía para comparar cómo algunas grabaciones musicales admiten su artificialidad frente a las que buscan una 'fidelidad' absoluta a la realidad."},{"label":"D","text":"El teatro oriental busca ser realista mientras el occidental es artificial.","isCorrect":false,"rationale":"Esta opción invierte las definiciones dadas en el texto sobre la naturaleza de ambas tradiciones teatrales."}]},{"question":"¿Qué define fundamentalmente a la 'música concreta' según los postulados de Pierre Schaeffer en 1948?","hint":"Considere el concepto de 'sonidos fijados' en un soporte analógico o digital.","options":[{"label":"A","text":"El uso del sonido grabado y fijado en un soporte para su manipulación y descontextualización.","isCorrect":true,"rationale":"La música concreta se basa en capturar ruidos de la realidad (como trenes o puertas) y tratarlos como objetos musicales mediante el corte y montaje."},{"label":"B","text":"La creación de sonidos puramente electrónicos mediante osciladores y sintetizadores.","isCorrect":false,"rationale":"Esta descripción corresponde más a la música electrónica temprana o sintetizada que a la técnica de sonidos fijados."},{"label":"C","text":"La improvisación en vivo utilizando instrumentos acústicos tradicionales sin amplificación.","isCorrect":false,"rationale":"La música concreta requiere necesariamente de dispositivos de grabación y fijación del sonido, alejándose de la improvisación acústica pura."},{"label":"D","text":"La composición exclusiva para orquestas sinfónicas basada en el sistema tonal tradicional.","isCorrect":false,"rationale":"Este género rompió con la estructura convencional de la música al dar importancia a ruidos incidentales sobre las melodías de violín."}]},{"question":"Según el texto de Ochoa, ¿qué permitió la 'repetición acústica' facilitada por el fonógrafo?","hint":"Piense en cómo la posibilidad de escuchar algo muchas veces afecta su estudio académico.","options":[{"label":"A","text":"El paso de una audición exótica a una audición científica y la articulación del sonido como concepto escrito.","isCorrect":true,"rationale":"La capacidad de repetir el sonido permitió analizar músicas que no se ajustaban al pentagrama occidental y buscar formas de transcribirlas."},{"label":"B","text":"El desarrollo del sistema tonal funcional mediante el uso de gramófonos.","isCorrect":false,"rationale":"El sistema tonal es muy anterior al fonógrafo y el texto discute cómo la tecnología ayuda a analizar sonidos que se salen de dicho sistema."},{"label":"C","text":"La eliminación definitiva del ruido en las grabaciones de música clásica.","isCorrect":false,"rationale":"El texto se enfoca en el cambio de percepción y análisis, no en la perfección técnica de la grabación."},{"label":"D","text":"La prohibición de instrumentos electrónicos en los estudios de grabación europeos.","isCorrect":false,"rationale":"El fonógrafo fue una herramienta de estudio y difusión, no un mecanismo de censura instrumental."}]},{"question":"Fischerman explica que una obra como 'Elektra' de Richard Strauss es tonal a pesar de su ambigüedad porque:","hint":"Considere la relación entre tensión, postergación y clímax en la música europea tradicional.","options":[{"label":"A","text":"Fue compuesta siguiendo estrictamente las reglas del dodecafonismo de Schönberg.","isCorrect":false,"rationale":"El dodecafonismo es un sistema atonal que rompe con la jerarquía de la nota fundamental, al contrario de lo que ocurre en 'Elektra'."},{"label":"B","text":"Toda su carga de tensión se encamina finalmente hacia una resolución tonal.","isCorrect":true,"rationale":"En el sistema tonal funcional, los sonidos actúan como polos de atracción de tensión y reposo, independientemente de cuánta disonancia se use en el proceso."},{"label":"C","text":"Utiliza únicamente instrumentos electrónicos que simulan sonidos acústicos.","isCorrect":false,"rationale":"La obra mencionada es una ópera orquestal clásica y no depende de la síntesis electrónica para su definición tonal."},{"label":"D","text":"Carece de disonancias y sigue una estructura rítmica previsible.","isCorrect":false,"rationale":"El autor afirma que es sumamente disonante; la tonalidad no depende de la ausencia de disonancia sino de la resolución funcional."}]},{"question":"¿Qué modelo utilizó Arnold Schönberg para teorizar sobre el lugar de la razón en el arte y el desarrollo matemático de los intervalos?","hint":"Busque al compositor que se consideraba la antítesis racionalista del romanticismo wagneriano.","options":[{"label":"A","text":"La música de Richard Wagner y su cromatismo extremo.","isCorrect":false,"rationale":"Aunque Schönberg evolucionó a partir de Wagner, buscó en otro compositor el modelo de racionalismo y variación desarrollada."},{"label":"B","text":"El uso de sonidos ambientales grabados por Pierre Schaeffer.","isCorrect":false,"rationale":"Schaeffer pertenece a una tradición posterior y estética distinta (música concreta), ajena al desarrollo del dodecafonismo serial."},{"label":"C","text":"La improvisación libre típica del jazz de principios de siglo.","isCorrect":false,"rationale":"El dodecafonismo es un sistema de predeterminación y cálculo intelectual, opuesto a la idea de asociación libre o espontaneidad."},{"label":"D","text":"Johannes Brahms y su concepto de racionalismo musical.","isCorrect":true,"rationale":"Brahms representaba para Schönberg el trabajo casi matemático con los intervalos y la idea de que todo debe partir de un tema inicial."}]},{"question":"En el contexto de una Estación de Trabajo de Audio Digital (DAW), ¿qué función cumple la 'interfaz de sonido'?","hint":"Piense en el puente físico entre el mundo del sonido real y los datos de la computadora.","options":[{"label":"A","text":"Es el software encargado de gestionar las pistas y la mesa de mezclas virtual.","isCorrect":false,"rationale":"Este componente es el 'software de edición'; la interfaz es un componente de hardware."},{"label":"B","text":"Es el procesador central del ordenador que ejecuta los algoritmos de edición.","isCorrect":false,"rationale":"Esa descripción corresponde al 'anfitrión' o host, no a la interfaz de audio."},{"label":"C","text":"Almacena físicamente los archivos de audio en discos de goma laca.","isCorrect":false,"rationale":"Las DAW modernas utilizan almacenamiento digital (discos duros/SSD), no discos de goma laca, que son de la era de la grabación mecánica."},{"label":"D","text":"Realiza la conversión analógica-digital y digital-analógico de la señal sonora.","isCorrect":true,"rationale":"La interfaz permite que los voltajes analógicos se conviertan en datos binarios para el ordenador y viceversa para la escucha final."}]},{"question":"De acuerdo con la tesis de Lavega, ¿qué instrumento electrónico fue clave para el sonido del Techno tal como se conoce hoy?","hint":"Es un dispositivo analógico de 1984 que permite sincronizar múltiples instrumentos simultáneamente.","options":[{"label":"A","text":"El órgano Hammond inventado en 1929.","isCorrect":false,"rationale":"El Hammond es un precursor importante del sintetizador, pero el techno se identifica más específicamente con máquinas de ritmo programables."},{"label":"B","text":"El piano optofónico de Vladimir Baranov-Rossiné.","isCorrect":false,"rationale":"Aunque es un invento histórico relevante, pertenece a las vanguardias pictórico-musicales anteriores y no a la cultura de baile electrónica."},{"label":"C","text":"La caja de ritmos Roland TR-909.","isCorrect":true,"rationale":"El autor destaca que la TR-909, lanzada en la década de 1980, sustentó la base del sonido techno al incorporar el sistema MIDI."},{"label":"D","text":"El fonógrafo de finales del siglo XIX.","isCorrect":false,"rationale":"El fonógrafo es un reproductor mecánico/acústico, no un instrumento de síntesis rítmica para música electrónica bailable."}]},{"question":"El término 'acusmática' se refiere a:","hint":"Piense en los discípulos de Pitágoras escuchando detrás de una tela.","options":[{"label":"A","text":"La técnica de escribir notas musicales sobre un pentagrama tradicional.","isCorrect":false,"rationale":"La música acusmática a menudo se aleja de la notación tradicional, siendo el soporte (cinta/CD) la 'partitura' misma."},{"label":"B","text":"La amplificación de instrumentos acústicos mediante micrófonos de alta fidelidad.","isCorrect":false,"rationale":"Aunque usa micrófonos, la esencia es la separación visual entre la fuente del sonido y el oyente."},{"label":"C","text":"Música compuesta exclusivamente para ser interpretada por instrumentos de cuerda africanos.","isCorrect":false,"rationale":"La acusmática es un concepto ligado a la percepción sonora y la tecnología de grabación, no a una instrumentación étnica específica."},{"label":"D","text":"Un sonido que se oye sin observar las causas o fuentes que lo producen.","isCorrect":true,"rationale":"Tomado de la práctica de Pitágoras, Schaeffer aplicó este término a la música donde el oyente solo tiene acceso al sonido grabado, sin ver al intérprete."}]},{"question":"¿Cuál es la característica técnica única del Theremín que lo distingue de otros instrumentos electrónicos tempranos?","hint":"Fue inventado por un físico ruso y se asocia a menudo con películas de ciencia ficción.","options":[{"label":"A","text":"Se toca sin necesidad de contacto físico, interfiriendo en campos electromagnéticos.","isCorrect":true,"rationale":"El intérprete mueve las manos cerca de dos antenas para controlar el tono y el volumen sin tocar el aparato."},{"label":"B","text":"Utiliza cintas magnéticas grabadas para reproducir sonidos de la naturaleza.","isCorrect":false,"rationale":"Esa técnica es propia de la música concreta o el mellotrón, no del theremín."},{"label":"C","text":"Genera sonido mediante la rotación de generadores electromagnéticos masivos.","isCorrect":false,"rationale":"Esta es la descripción del Telharmonium o Dynamophone de Thaddeus Cahill."},{"label":"D","text":"Requiere de un teclado similar al de un piano para ajustar el tono de las cuerdas.","isCorrect":false,"rationale":"El theremín no posee cuerdas ni teclado; es un instrumento puramente electrónico."}]},{"question":"Según Stockhausen, su obra 'Kontakte' exploraba una nueva relación entre el sonido y:","hint":"Considere cómo la ubicación de los parlantes afecta la percepción del oyente.","options":[{"label":"A","text":"La narrativa literaria de los cuentos de hadas tradicionales.","isCorrect":false,"rationale":"Stockhausen buscaba alejarse de las estructuras narrativas convencionales hacia una experiencia puramente sonora y espacial."},{"label":"B","text":"El silencio absoluto como único componente de la obra.","isCorrect":false,"rationale":"Aunque el silencio es parte de la música contemporánea, 'Kontakte' es conocida por su 'frenesí matemático de partículas sonoras'."},{"label":"C","text":"La afinación perfecta de los instrumentos de madera de la orquesta.","isCorrect":false,"rationale":"Kontakte combina tonos sinusoidales electrónicos y percusión, centrando su innovación en la organización espacial más que en la afinación orquestal."},{"label":"D","text":"El espacio, utilizando parlantes ubicados en las esquinas de la sala.","isCorrect":true,"rationale":"La obra permitía una diseminación del sonido que envolvía al oyente, rompiendo el escenario tradicional de fuente única frontal."}]}];
+const tr = {"correct":"Correct!","incorrect":"Incorrect","next":"Next Question →","seeResults":"See Results","complete":"Quiz Complete!","scoreText":"You got {correct} out of {total} correct","tryAgain":"Try Again","rightAnswer":"Right answer","notQuite":"Not quite"};
+let currentQ = 0, correctCount = 0, answered = false;
+
+function init() {
+  document.querySelectorAll('.question').forEach((q, i) => q.classList.toggle('active', i === 0));
+  updateProgress();
+  document.querySelectorAll('.option').forEach(opt => opt.addEventListener('click', () => selectOption(opt)));
+  document.querySelectorAll('.next-btn').forEach(btn => btn.addEventListener('click', nextQuestion));
+}
+
+function selectOption(opt) {
+  if (answered) return;
+  answered = true;
+  const q = opt.closest('.question');
+  const options = q.querySelectorAll('.option');
+  const nextBtn = q.querySelector('.next-btn');
+  const isCorrect = opt.dataset.correct === 'true';
+  
+  // Mark all options as disabled
+  options.forEach(o => o.classList.add('disabled'));
+  
+  // Style selected option
+  opt.classList.add('selected', isCorrect ? 'correct' : 'incorrect');
+  
+  // Show correct answer if wrong
+  if (!isCorrect) {
+    const correctOpt = [...options].find(o => o.dataset.correct === 'true');
+    if (correctOpt) correctOpt.classList.add('show-correct');
+  }
+  
+  if (isCorrect) correctCount++;
+  
+  // Show feedback for ALL options that have rationale
+  options.forEach(o => {
+    const wrapper = o.closest('.option-wrapper');
+    const feedback = wrapper.querySelector('.option-feedback');
+    const rationale = o.dataset.rationale;
+    const isThisCorrect = o.dataset.correct === 'true';
+    
+    if (rationale && rationale.trim()) {
+      feedback.classList.remove('hidden');
+      feedback.classList.add(isThisCorrect ? 'correct-feedback' : 'incorrect-feedback');
+      
+      const statusEl = feedback.querySelector('.feedback-status');
+      statusEl.className = 'feedback-status ' + (isThisCorrect ? 'correct' : 'incorrect');
+      statusEl.innerHTML = isThisCorrect 
+        ? '✓ ' + tr.rightAnswer
+        : '✗ ' + tr.notQuite;
+    }
+  });
+  
+  nextBtn.classList.remove('hidden');
+  if (currentQ === quizData.length - 1) nextBtn.textContent = tr.seeResults;
+}
+
+function nextQuestion() {
+  answered = false;
+  currentQ++;
+  if (currentQ >= quizData.length) { showResults(); return; }
+  document.querySelectorAll('.question').forEach((q, i) => q.classList.toggle('active', i === currentQ));
+  updateProgress();
+}
+
+function updateProgress() {
+  document.querySelector('.progress-fill').style.width = (currentQ / quizData.length * 100) + '%';
+}
+
+function showResults() {
+  document.querySelectorAll('.question').forEach(q => q.classList.remove('active'));
+  document.getElementById('results').classList.add('active');
+  const pct = Math.round((correctCount / quizData.length) * 100);
+  document.getElementById('score').textContent = pct + '%';
+  document.getElementById('score-text').textContent = tr.scoreText.replace('{correct}', correctCount).replace('{total}', quizData.length);
+  document.querySelector('.progress-fill').style.width = '100%';
+}
+
+function restart() {
+  currentQ = 0; correctCount = 0; answered = false;
+  document.getElementById('results').classList.remove('active');
+  document.querySelectorAll('.question').forEach((q, i) => {
+    q.classList.toggle('active', i === 0);
+    q.querySelectorAll('.option').forEach(o => o.classList.remove('selected', 'correct', 'incorrect', 'disabled', 'show-correct'));
+    q.querySelectorAll('.option-feedback').forEach(f => {
+      f.classList.add('hidden');
+      f.classList.remove('correct-feedback', 'incorrect-feedback');
+    });
+    const btn = q.querySelector('.next-btn');
+    btn.classList.add('hidden');
+    btn.textContent = tr.next;
+  });
+  updateProgress();
+}
+
+init();
+</script>
+</body>
+</html>
